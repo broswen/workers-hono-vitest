@@ -166,6 +166,9 @@ dist
 .yarn/install-state.gz
 .pnp.\*
 
+# jetbrains
+.idea
+
 # wrangler project
 
 .dev.vars

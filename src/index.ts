@@ -1,32 +1,57 @@
-/**
- * Welcome to Cloudflare Workers! This is your first worker.
- *
- * - Run `npm run dev` in your terminal to start a development server
- * - Open a browser tab at http://localhost:8787/ to see your worker in action
- * - Run `npm run deploy` to publish your worker
- *
- * Learn more at https://developers.cloudflare.com/workers/
- */
+import { Hono } from 'hono';
+import { Env } from './env';
+export { Counter } from './counter';
 
-export interface Env {
-	// Example binding to KV. Learn more at https://developers.cloudflare.com/workers/runtime-apis/kv/
-	// MY_KV_NAMESPACE: KVNamespace;
-	//
-	// Example binding to Durable Object. Learn more at https://developers.cloudflare.com/workers/runtime-apis/durable-objects/
-	// MY_DURABLE_OBJECT: DurableObjectNamespace;
-	//
-	// Example binding to R2. Learn more at https://developers.cloudflare.com/workers/runtime-apis/r2/
-	// MY_BUCKET: R2Bucket;
-	//
-	// Example binding to a Service. Learn more at https://developers.cloudflare.com/workers/runtime-apis/service-bindings/
-	// MY_SERVICE: Fetcher;
-	//
-	// Example binding to a Queue. Learn more at https://developers.cloudflare.com/queues/javascript-apis/
-	// MY_QUEUE: Queue;
-}
+
+const app = new Hono<{Bindings: Env}>();
+
+app.use(async (c, next) => {
+	const start = Date.now();
+	await next()
+	const elapsed = Date.now() - start;
+	c.env.ANALYTICS?.writeDataPoint({
+		blobs: [c.req.method, c.req.path, c.env.VERSION],
+		doubles: [c.res.status, elapsed]
+	});
+	if (!c.env.ANALYTICS) {
+		console.log({
+			blobs: [c.req.method, c.req.path, c.env.VERSION],
+			doubles: [c.res.status, elapsed]
+		});
+	}
+})
+
+app.get("/", async (c) => c.text("Hello, World!"));
+
+app.get("/version", async (c) => c.json({version: c.env.VERSION}));
+
+app.get("/counters/:key", async (c) => {
+	const key = c.req.param("key");
+	const id = c.env.DO.idFromName(key);
+	const stub = c.env.DO.get(id);
+	return stub.fetch(c.req.url);
+});
+
+app.get("/kv/:key", async (c) => {
+	const key = c.req.param("key");
+	const value = await c.env.KV.get(key);
+	if (!value) {
+		return c.notFound();
+	}
+	return c.json({
+		value
+	});
+});
+
+app.put("/kv/:key", async (c) => {
+	const key = c.req.param("key");
+	const value = await c.req.text();
+	c.executionCtx.waitUntil(c.env.KV.put(key, value));
+	return c.json({
+		value
+	});
+});
 
 export default {
-	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-		return new Response('Hello World!');
-	},
+	fetch: app.fetch
 };
