@@ -1,13 +1,14 @@
-import { Hono } from 'hono';
+import { Context, Hono, Next } from 'hono';
 import { Env } from './env';
+import { createMiddleware } from 'hono/factory';
 export { Counter } from './counter';
 
 
 const app = new Hono<{Bindings: Env}>();
 
-app.use(async (c, next) => {
+const analyticsMiddleware = createMiddleware(async (c: Context<{Bindings: Env}>, next: Next) => {
 	const start = Date.now();
-	await next()
+	await next();
 	const elapsed = Date.now() - start;
 	c.env.ANALYTICS?.writeDataPoint({
 		blobs: [c.req.method, c.req.path, c.env.VERSION],
@@ -20,6 +21,7 @@ app.use(async (c, next) => {
 		});
 	}
 })
+app.use(analyticsMiddleware)
 
 app.get("/", async (c) => c.text("Hello, World!"));
 
