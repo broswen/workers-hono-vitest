@@ -87,7 +87,7 @@ describe("DO counter should work", () => {
 	it('should increment 1 to existing counter', async () => {
 		const id = env.DO.idFromName("a");
 		const stub = env.DO.get(id);
-		await runInDurableObject(stub, (instance: Counter, state) => {
+		await runInDurableObject(stub, (instance: Counter) => {
 			instance.increment();
 		})
 

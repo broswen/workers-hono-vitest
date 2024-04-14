@@ -23,8 +23,8 @@ export class Counter implements DurableObject {
 	fetch(request: Request): Response | Promise<Response> {
 		return this.app.fetch(request);
 	}
-	async increment(by = 1) {
-		this.count += 1;
+	async increment(by: number = 1) {
+		this.count += by;
 		await this.state.storage.put("count", this.count);
 	}
 }
